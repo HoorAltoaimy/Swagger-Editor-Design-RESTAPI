@@ -1,15 +1,17 @@
 openapi: 3.0.0
 
 info:
-  version: 1.0.0
   title: E-commerce API
   description: API for e-comerce platform
+  version: 1.0.0
   contact:
+    name: hoor
     email: hooraltoaimy@gmail.com
     
 servers:
   - url: http://localhost:3001
 
+#grouping the related components
 tags:
   - name: products
     description: everything about products
@@ -19,7 +21,10 @@ tags:
     description: everything about orders
   - name: categories
     description: everything about categories
-       
+  - name: authentication
+    description: everything about login, register, and logout
+
+#define the schemas (models)         
 components:
   schemas:
     Product:
@@ -46,10 +51,10 @@ components:
           type: string
           description: the description of the product
         categories: 
-          type: array
-          items:
-            type: number
-          description: the categories of the product
+            type: array
+            items:
+              $ref: '#/components/schemas/Category' #relationship between product and category
+            description: the categories of the product
         variants: 
           type: array
           items:
@@ -62,7 +67,8 @@ components:
           description: the sizes of the product
         price: 
           type: number
-          description: the price of the product       
+          description: the price of the product 
+      #provide some example for the schema           
       example:
         id: 1
         name: Laptop
@@ -116,22 +122,25 @@ components:
     Order:
       type: object
       required:
-        - productId
+        - products
         - userId
         - purchasedAt
       properties:
         id: 
           type: number
           description: the id of the order will be automatically generated in the backend
-        productId: 
-          type: number
-          description: the product id
+        products: 
+          type: array
+          items:
+            $ref: '#/components/schemas/Product'
+          description: list of the puchased products
         userId: 
           type: number
           description: the user id
         purchasedAt: 
           type: string
-          description: the date of making this order
+          format: date-time
+          description: the date of making the order
       example:
         id: 1
         productId: 1
@@ -152,20 +161,40 @@ components:
       example:
         id: 1
         name: Electronics
- 
+
+#handling the endpoints  
 paths:
-  /products: 
+  /products: #one endpoint can have multiple methods: get, post, delete... 
     get:
       tags:
         - products
-      summary: get a list of products 
+      summary: get a list of products #information about this http request
+      parameters:
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: number
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: number
+        - in: query
+          name: sortBy
+          required: false
+          schema:
+            type: string
+            enum: 
+              - 'asc'
+              - 'desc'
       responses:
         200:
-          description: all products are returned
+          description: all products are rendered
           content:
             application/json:
               schema:
-                type: array 
+                type: array #because we want to render an array of products
                 items: 
                   $ref: '#/components/schemas/Product'
         500:
@@ -175,28 +204,29 @@ paths:
       tags:
         - products
       summary: create a product
-      requestBody: 
+      requestBody: #the data that we want to send (a single product)
         content:
             application/json:
               schema:
                   $ref: '#/components/schemas/Product'
       responses:
-        201: 
+        201: #the typical response sent after POST or PUT requests
           description: single product is created
           content:
             application/json:
               schema:
+                  #here no need for type and items because we are refering to the reference directly (we want to render one product only)
                   $ref: '#/components/schemas/Product'
         500:
           description: server error
           
-  /products/{productId}: 
+  /products/{productId}: #{} because it is dynamic
     get:
       tags:
         - products
       summary: get a single product
-      parameters: 
-        - in: path  
+      parameters: #handle parameters of the endpoint (can be path or query)
+        - in: path  #in: where the parameter is
           name: productId
           required: true
           schema:
@@ -208,6 +238,8 @@ paths:
             application/json:
               schema:
                   $ref: '#/components/schemas/Product'
+        404:
+          description: product is not found
         500:
           description: server error
           
@@ -224,6 +256,8 @@ paths:
       responses:
         200:
           description: product is deleted
+        404:
+          description: product is not found
         500:
           description: server error
           
@@ -231,7 +265,7 @@ paths:
       tags:
         - products
       summary: update a single product
-      requestBody: 
+      requestBody: #send the updated data
         content:
             application/json:
               schema:
@@ -249,6 +283,8 @@ paths:
             application/json:
               schema:
                   $ref: '#/components/schemas/Product'
+        404:
+          description: product is not found
         500:
           description: server error
           
@@ -272,6 +308,8 @@ paths:
                 type: array
                 items: 
                   $ref: '#/components/schemas/Product'
+        404:
+          description: no products found
         500:
           description: server error
           
@@ -282,7 +320,7 @@ paths:
       summary: get a list of users
       responses:
         200:
-          description: all the users are returned
+          description: all users are returned
           content:
             application/json:
               schema:
@@ -291,6 +329,24 @@ paths:
                   $ref: '#/components/schemas/User'
         500:
           description: server error
+    post:
+      tags:
+        - users
+      summary: create user
+      requestBody:
+        content:
+            application/json:
+              schema:
+                  $ref: '#/components/schemas/User'
+      responses:
+        201:
+          description: user is created
+          content:
+            application/json:
+              schema:
+                  $ref: '#/components/schemas/User'
+        500:
+          description: server error  
           
   /users/{userId}:
     delete:
@@ -308,6 +364,30 @@ paths:
           description: user is deleted
         500:
           description: server error
+    put:
+      tags:
+        - users
+      summary: update user by id
+      requestBody:
+        content:
+            application/json:
+              schema:
+                  $ref: '#/components/schemas/User'
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: number
+      responses:
+        200:
+          description: user is updated
+          content:
+            application/json:
+              schema:
+                  $ref: '#/components/schemas/User'
+        500:
+          description: server error
   
   /orders:
     get:
@@ -323,6 +403,66 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Order'
+        500:
+          description: server error
+    post:
+      tags:
+        - orders
+      summary: create an order
+      requestBody:
+        content:
+            application/json:
+              schema:
+                  $ref: '#/components/schemas/Order'
+      responses:
+        201:
+          description: order is created
+          content:
+            application/json:
+              schema:
+                  $ref: '#/components/schemas/Order'
+        500:
+          description: server error  
+ 
+  /orders/{orderId}:    
+    put:
+      tags:
+        - orders
+      summary: update a single order
+      requestBody:
+        content:
+            application/json:
+              schema:
+                  $ref: '#/components/schemas/Order'
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: number
+      responses:
+        200:
+          description: order is updated
+          content:
+            application/json:
+              schema:
+                  $ref: '#/components/schemas/Order'
+        500:
+          description: server error  
+          
+    delete:
+      tags:
+        - orders
+      summary: delete order
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: number
+      responses:
+        200:
+          description: order is deleted
         500:
           description: server error
   
@@ -403,4 +543,63 @@ paths:
           description: category is deleted
         500:
           description: server error
-      
+
+  /register:
+    post:
+      tags:
+        -  authentication
+      summary: register a new user
+      requestBody:
+        content:
+            application/json:
+              schema:
+                  type: object
+                  properties:
+                    firstName: 
+                      type: string
+                    lastName: 
+                      type: string
+                    email: 
+                      type: string
+                    password: 
+                      type: string
+      responses:
+        200:
+          description: user is registered
+        401:
+          description: invalid information
+        500:
+          description: server error 
+  /login:
+    post:
+      tags:
+        -  authentication
+      summary: login with an existing user information
+      requestBody:
+        content:
+            application/json:
+              schema:
+                  type: object
+                  properties:
+                    email: 
+                      type: string
+                    password: 
+                      type: string
+      responses:
+        200:
+          description: user is logedin
+        401:
+          description: unauthorized
+        500:
+          description: server error  
+  /logout:
+    post:
+      tags:
+        -  authentication
+      summary: logout
+      responses:
+        200:
+          description: user is logedout
+        500:
+          description: server error   
+             
